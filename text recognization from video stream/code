@@ -1,0 +1,125 @@
+import easyocr
+import cv2
+# reader = easyocr.Reader(['en', "hi", "ta", "te", "ur", ])
+from _cffi_backend import buffer
+
+reader = easyocr.Reader(['en', "ta"], gpu = False)
+
+# cap = cv2.VideoCapture("Sequence 9.mp4")
+# cap = cv2.VideoCapture(0)
+# cap = cv2.VideoCapture("test.mp4")
+# cap.set(cv2.CAP_PROP_POS_FRAMES, 10)
+import numpy as np
+from flask import Flask, render_template, Response
+
+app = Flask(__name__)
+
+from pymongo import MongoClient
+import gridfs
+import base64
+
+# connection with database
+connection = MongoClient('mongodb://localhost:27017')
+
+db = connection['detected']
+mycoll = db['text11']
+
+fs = gridfs.GridFS(db)
+
+data = {}
+l = list()
+
+
+# videos = ["v3","v2", 0,"v5","v6","v7","v8"]
+
+##############################################
+# display video, text recognition and save it to database from video
+
+
+def get_frames():
+    # cap = cv2.VideoCapture(0)54
+    # cap = cv2.VideoCapture('Sequence 9.mp4')
+    cap = cv2.VideoCapture('v5.mp4')
+    # width = int(cap.get(3))
+    # height = int(cap.get(4))
+    while cap.isOpened():
+        contain, frame = cap.read()
+        if contain:
+            # result = reader.readtext(frame)
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+
+def get_text():
+    # capture the video
+    # cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture('v5.mp4')
+    # cap = cv2.VideoCapture('Sequence 9.mp4')
+    width = int(cap.get(3))
+    height = int(cap.get(4))
+    print(width, height)
+    i = 0
+    l = ["blank"]
+    # img = np.zeros([640,320,3], np.uint8)
+    # font style
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    (newW, newH) = (640, 640)
+
+    while True:
+        print("inside while loop")
+        ret, frame = cap.read()
+        if ret:
+            result = reader.readtext(frame, detail=1, paragraph=True)  # Set detail to 0 for simple text output
+            # Paragraph=True will combine all results making it easy to capture it in a dataframe.
+
+            # To display the text on the original image or show bounding boxes
+            # we need the coordinates for the text. So make sure the detail=1 above, readtext.
+            # display the OCR'd text and associated probability
+            # for (bbox, text, prob) in results:
+            #
+            #     # Define bounding boxes
+            #     (tl, tr, br, bl) = bbox
+            #     tl = (int(tl[0]), int(tl[1]))
+            #     tr = (int(tr[0]), int(tr[1]))
+            #     br = (int(br[0]), int(br[1]))
+            #     bl = (int(bl[0]), int(bl[1]))
+            # Remove non-ASCII characters to display clean text on the image (using opencv)
+
+            k = 0
+            for t in result:
+                if t not in l:
+                    l.append(t)
+                    print(t)
+                    # cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    # img = np.zeros([640, 320, 3], np.uint8)
+                    frame = cv2.putText(frame, t, (10, 40 + k), font, 0.5, (255, 255, 255), 1, cv2.FONT_HERSHEY_SIMPLEX)
+                    k+=20
+                    flag, buf = cv2.imencode('.jpg', frame)
+                    frame = buf.tobytes()
+                    # data['abcd']= base64.encodebytes(frame).decode('utf-8')
+                    if len(l[-1]) != 0 and l[-2] != l[-1]:
+                        mycoll.insert_one({"_id": f'{i}', f"{i}": text})
+                    i += 1
+
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+
+@app.route('/video')
+def video():
+    return Response(get_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/text')
+def text():
+    return Response(get_text(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
