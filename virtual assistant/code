@@ -1,0 +1,78 @@
+import pyttsx3
+import datetime
+import speechRecognition as sr
+import webbrowser
+import wikipedia
+import os
+import requests
+import json
+
+engine = pyttsx3.init('sapi5')
+
+voices= engine.getProperty('voices') #getting details of current voice
+
+engine.setProperty('voice', voice[0].id)
+def speak(audio):
+    engine.say(audio)
+    engine.runAndWait()
+    speak("Code With Harry")
+
+def wishme():
+    hour = int(datetime.datetime.now().hour)
+
+
+def takeCommand():
+    # It takes microphone input from the user and returns string output
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        print("Listening...")
+        r.pause_threshold = 1
+        audio = r.listen(source)
+    try:
+        print("Recognizing...")
+        query = r.recognize_google(audio, language='en-in')  # Using google for voice recognition.
+        print(f"User said: {query}\n")  # User query will be printed.
+    except Exception as e:
+        # print(e)
+        print("Say that again please...")  # Say that again will be printed in case of improper voice
+        return "None"  # None string will be returned
+    return query
+if __name__ == "__main__":
+    wishMe()
+    while True:
+    # if 1:
+        query = takeCommand().lower() #Converting user query into lower case
+
+        # Logic for executing tasks based on query
+        if 'wikipedia' in query:  #if wikipedia found in the query then this block will be executed
+            speak('Searching Wikipedia...')
+            query = query.replace("wikipedia", "")
+            results = wikipedia.summary(query, sentences=2)
+            speak("According to Wikipedia")
+            print(results)
+            speak(results)
+        elif 'open youtube' in query:
+            webbrowser.open("youtube.com")
+        elif 'open google' in query:
+            webbrowser.open("google.com")
+        elif 'play music' in query:
+            music_dir = 'D:\\Non Critical\\songs\\Favorite Songs2'
+            songs = os.listdir(music_dir)
+            print(songs)
+            os.startfile(os.path.join(music_dir, songs[0]))
+        elif 'the time' in query:
+            strTime = datetime.datetime.now().strftime("%H:%M:%S")
+            speak(f"Sir, the time is {strTime}")
+        elif 'open code' in query:
+            codePath = "C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs"
+            os.startfile(codePath)
+        elif "news" in query:
+            speak("News for today.. Lets begin")
+            url = "https://newsapi.org/v2/top-headlines?country=in&apiKey=fb8cc879647c4cdd9b4b9496d2144c3a"
+            news = requests.get(url).text
+            news_dict = json.loads(news)
+            arts = news_dict['articles']
+            for article in arts:
+                speak(article['title'])
+                print(article['title'])
+                speak("Moving on to the next news")
